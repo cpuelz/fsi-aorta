@@ -1,0 +1,497 @@
+// 4/12: same as test4 but not running for as long and also
+// changing viz dump interval
+// 4/23: same as test6 but trying to eliminate crinkling elements on the boundary
+// of the ascending aorta.  I think this is related to MFAC, i.e. the fluid mesh is
+// still too coarse relative to the structure mesh, so let's make the fluid mesh finer.
+// 4/23: same as test7 but now even smaller fluid mesh.
+// 4/26: same as test8 but with slightly higher bulk modulus and smaller timestep because an element is inverting.
+// 4/26: this is with a coarser mesh but still second order elements. i've also take N=5 instead of N=6 and
+//       decreased the bulk modulus since this seemed to be causing instabilities.
+// 4/27: same as test11 but with slightly finer fluid mesh
+//       I am seeing crinkling at the ascending Ao with test11, so hopefully a finer fluid mesh fixes this.
+// 5/1:  this is the same as test12 but with stronger volumetric tethering to see if this fixes the crinkling.
+//       I also made T_RAMP larger so that zero traction boundary conditions remain for the entire simulation.
+file_prename = "test14" 
+//viz_output_prename = "/home/cpuelz/"+file_prename+"/"
+//viz_output_prename = "/scratch/cep327/"+file_prename+"/"
+//viz_output_prename = "/21dayscratch/scr/c/p/cpuelz/"+file_prename+"/"
+viz_output_prename = "/pine/scr/c/p/cpuelz/"+file_prename+"/"
+//viz_output_prename = "/scratch/cp16/"+file_prename+"/"
+//viz_output_prename = "/scratch/07689/cpuelz/"+file_prename+"/"
+
+log_invariant_data = TRUE
+use_timer = TRUE
+
+// physical parameters
+MU  = 0.04
+RHO = 1.0
+L = 0.387613
+mult_x = 9
+mult_y = 12
+mult_z = 10
+L_x = mult_x*L
+L_y = mult_y*L
+L_z = mult_z*L
+
+// volumetric energy type
+VOL_ENERGY_TYPE = "log_volumetric_energy"
+BETA_S = 1e8
+
+// things for active contraction
+PERIOD = 0.67968 // this is specified from the flow waveform data.
+
+FIBER_SYSTEM_NAME = "fiber_info"
+NUM_PARTS = 1
+
+// parameters for the afterload models
+T_RAMP = 1.0
+AfterloadModel{
+  test_circ_models = FALSE
+  data_time_filename = viz_output_prename+"afterload_data/time.dat"
+  data_directory_name = viz_output_prename+"afterload_data"
+  surface_tethering = FALSE
+  body_tethering = TRUE
+  Cartesian_L_x = L_x
+  Cartesian_L_y = L_y
+  Cartesian_L_z = L_z
+  // data for aortic outflow tract from:
+  // Gao H., Berry C., Luo X. (2015) Image-Derived Human Left Ventricular Modelling with Fluid-Structure Interaction.
+  // In: van Assen H., Bovendeerd P., Delhaas T. (eds) Functional Imaging and Modeling of the Heart.
+  // FIMH 2015. Lecture Notes in Computer Science, vol 9126. Springer, Cham
+  // DOI: https://doi.org/10.1007/978-3-319-20309-6_37
+  default_nodeset_name_2 {
+    pressure_filename  = viz_output_prename+"afterloadmodel/asc_ao_pressure.dat"
+    use_velocity_bcs = TRUE
+    q_prescribed_size = 25
+    q_prescribed_times = 0,0.02832,0.05664,0.08496,0.11328,0.1416,0.16992,0.19824,0.22656,0.25488,0.2832,0.31152,0.33984,0.36816,0.39648,0.4248,0.45312,0.48144,0.50976,0.53808,0.5664,0.59472,0.62304,0.65136,0.67968 // this is in seconds
+    q_prescribed_values = 1.02,0.32,79.67,221.33,299.64,320.67,302.08,287.13,245.76,198.36,124.01,19.44,-9.59,-0.42,2.50,5.51,5.72,5.30,1.79,2.21,-1.84,-1.61,-2.22,-0.95,-3.58 // this is in mL/sec
+    use_Q_sink = FALSE
+    P_ramp = 0.0  // mmHg
+    t_ramp = T_RAMP
+    R_P = 0.79 // peripheral resistance (mmHg ml^-1 s)
+    R_C = 0.033 // characteristic resistance (mmHg ml^-1 s)
+    C = 1.75   // total arterial compliance (ml mmHg^-1)
+    axis = 2
+    side = 0
+    subdomain_name = "aorta"
+  }
+  default_nodeset_name_3 {
+    pressure_filename  = viz_output_prename+"afterloadmodel/desc_ao_pressure.dat"
+    use_velocity_bcs = FALSE
+    use_Q_sink = FALSE
+    P_ramp = 0.0  // mmHg
+    t_ramp = T_RAMP
+    R_P = 0.79 // peripheral resistance (mmHg ml^-1 s)
+    R_C = 0.033 // characteristic resistance (mmHg ml^-1 s)
+    C = 1.75   // total arterial compliance (ml mmHg^-1)
+    axis = 2
+    side = 0
+    subdomain_name = "aorta"
+  }
+  default_nodeset_name_4 {
+    pressure_filename  = viz_output_prename+"afterloadmodel/collateral_pressure.dat"
+    use_velocity_bcs = FALSE
+    use_Q_sink = FALSE
+    P_ramp = 0.0  // mmHg
+    t_ramp = T_RAMP
+    R_P = 0.79 // peripheral resistance (mmHg ml^-1 s)
+    R_C = 0.033 // characteristic resistance (mmHg ml^-1 s)
+    C = 1.75   // total arterial compliance (ml mmHg^-1)
+    axis = 0
+    side = 1
+    subdomain_name = "aorta"
+  }
+  default_nodeset_name_5 {
+    pressure_filename  = viz_output_prename+"afterloadmodel/left_sub_pressure.dat"
+    use_velocity_bcs = FALSE
+    use_Q_sink = FALSE
+    P_ramp = 0.0  // mmHg
+    t_ramp = T_RAMP
+    R_P = 0.79 // peripheral resistance (mmHg ml^-1 s)
+    R_C = 0.033 // characteristic resistance (mmHg ml^-1 s)
+    C = 1.75   // total arterial compliance (ml mmHg^-1)
+    axis = 2
+    side = 1
+    subdomain_name = "aorta"
+  }
+  default_nodeset_name_6 {
+    pressure_filename  = viz_output_prename+"afterloadmodel/left_car_pressure.dat"
+    use_velocity_bcs = FALSE
+    use_Q_sink = FALSE
+    P_ramp = 0.0  // mmHg
+    t_ramp = T_RAMP
+    R_P = 0.79 // peripheral resistance (mmHg ml^-1 s)
+    R_C = 0.033 // characteristic resistance (mmHg ml^-1 s)
+    C = 1.75   // total arterial compliance (ml mmHg^-1)
+    axis = 2
+    side = 1
+    subdomain_name = "aorta"
+  }
+  default_nodeset_name_7 {
+    pressure_filename  = viz_output_prename+"afterloadmodel/innominate_pressure.dat"
+    use_velocity_bcs = FALSE
+    use_Q_sink = FALSE
+    P_ramp = 0.0  // mmHg
+    t_ramp = T_RAMP
+    R_P = 0.79 // peripheral resistance (mmHg ml^-1 s)
+    R_C = 0.033 // characteristic resistance (mmHg ml^-1 s)
+    C = 1.75   // total arterial compliance (ml mmHg^-1)
+    axis = 2
+    side = 1
+    subdomain_name = "aorta"
+  }
+ }
+
+// grid spacing parameters
+MAX_LEVELS = 2                                 // maximum number of levels in locally refined grid
+REF_RATIO  = 2                                 // refinement ratio between levels
+N = 6                                        // actual    number of grid cells on coarsest grid level
+NFINEST = (REF_RATIO^(MAX_LEVELS - 1))*N       // effective number of grid cells on finest   grid level
+DX0 = L/N                                      // mesh width on coarsest grid level
+DX  = L/NFINEST                                // mesh width on finest   grid level
+DX_FINEST = DX
+MFAC = 2.0                                     // ratio of Lagrangian mesh width to Cartesian mesh width
+PK1_QUAD_ORDER = "SECOND"
+
+// solver parameters
+IB_DELTA_FUNCTION          = "BSPLINE_3"       // the type of smoothed delta function to use for Lagrangian-Eulerian interaction
+SPLIT_TANGENTIAL_FORCE     = FALSE             // whether to split interior and boundary forces
+SPLIT_NORMAL_FORCE         = FALSE
+USE_JUMP_CONDITIONS        = FALSE             // whether to impose pressure jumps at fluid-structure interfaces
+USE_CONSISTENT_MASS_MATRIX = FALSE              // whether to use a consistent or lumped mass matrix
+USE_NODAL_QUADRATURE       = TRUE
+IB_POINT_DENSITY           = 0.9               // approximate density of IB quadrature points for Lagrangian-Eulerian interaction
+SOLVER_TYPE                = "STAGGERED"       // the fluid solver to use (STAGGERED or COLLOCATED)
+CFL_MAX                    = 0.3               // maximum CFL number
+DT                         = 0.5*0.0000625*DX      // maximum timestep size
+START_TIME                 = 0.0e0             // initial simulation time
+END_TIME                   = 2.0         // finial simulation time
+GROW_DT                    = 2.0e0             // growth factor for timesteps
+NUM_CYCLES                 = 1                 // number of cycles of fixed-point iteration
+CONVECTIVE_TS_TYPE         = "ADAMS_BASHFORTH" // convective time stepping type
+CONVECTIVE_OP_TYPE         = "STABILIZED_PPM"  // convective differencing discretization type
+CONVECTIVE_FORM            = "ADVECTIVE"       // how to compute the convective terms
+NORMALIZE_PRESSURE         = FALSE             // whether to explicitly force the pressure to have mean zero
+ERROR_ON_DT_CHANGE         = TRUE              // whether to emit an error message if the time step size changes
+VORTICITY_TAGGING          = FALSE             // whether to tag cells for refinement based on vorticity thresholds
+TAG_BUFFER                 = 1                 // size of tag buffer used by grid generation algorithm
+REGRID_CFL_INTERVAL        = 0.5               // regrid whenever any material point could have moved 0.5 meshwidths since previous regrid
+REGRID_STRUCTURE_CFL_INTERVAL = 0.5
+OUTPUT_U                   = TRUE
+OUTPUT_P                   = TRUE
+OUTPUT_F                   = TRUE
+OUTPUT_OMEGA               = TRUE
+OUTPUT_DIV_U               = TRUE
+ENABLE_LOGGING             = TRUE
+
+// collocated solver parameters
+PROJECTION_METHOD_TYPE = "PRESSURE_UPDATE"
+SECOND_ORDER_PRESSURE_UPDATE = TRUE
+
+AortaPart{
+  MESH_FILENAME 	      = "vessels_aorta_with_carotid_0426_TetWild.exo"
+  MESH_LENGTH_UNIT            = "mm"
+  ELEM_ORDER		      = "SECOND"
+  tether_body_force_names     = " "
+  tether_surface_force_names  = " "
+  surface_pressure_names      = " "
+  has_fibers                  = FALSE
+  aorta {
+      t_ramp                  = T_RAMP
+    beta_s                    = BETA_S
+    volumetric_energy_type    = VOL_ENERGY_TYPE
+    constitutive_model        = "neohookean_model"
+    neohookean_model {
+      mu_s                    = 5.0e6
+    }
+  }
+  uniformly_refine_mesh       = FALSE
+  locally_refine_mesh         = FALSE
+  turn_on_meters              = TRUE
+  nodeset_IDs_for_meters      = 2,3,4,5,6,7
+  meters_directory_name       = viz_output_prename+"viz_inst3d_aorta"
+  meters_adaptive_quadrature  = FALSE
+  meters_quad_type            = "QGAUSS"
+  meters_quad_order           = "FORTIETH"
+  meters_dump_interval        = 100
+  turn_on_sources             = FALSE
+  use_afterload_models        = TRUE
+  afterload_model_nodeset_names = "default_nodeset_name_2", "default_nodeset_name_3", "default_nodeset_name_4","default_nodeset_name_5", "default_nodeset_name_6", "default_nodeset_name_7"
+}
+
+VelocityBcCoefs_0 {
+acoef_function_0 = "0.0"
+acoef_function_1 = "0.0"
+acoef_function_2 = "1.0"
+acoef_function_3 = "1.0"
+acoef_function_4 = "1.0"
+acoef_function_5 = "1.0"
+
+bcoef_function_0 = "1.0"
+bcoef_function_1 = "1.0"
+bcoef_function_2 = "0.0"
+bcoef_function_3 = "0.0"
+bcoef_function_4 = "0.0"
+bcoef_function_5 = "0.0"
+
+gcoef_function_0 = "0.0"
+gcoef_function_1 = "0.0"
+gcoef_function_2 = "0.0"
+gcoef_function_3 = "0.0"
+gcoef_function_4 = "0.0"
+gcoef_function_5 = "0.0"
+		  }
+
+VelocityBcCoefs_1 {
+acoef_function_0 = "1.0"
+acoef_function_1 = "1.0"
+acoef_function_2 = "0.0"
+acoef_function_3 = "0.0"
+acoef_function_4 = "1.0"
+acoef_function_5 = "1.0"
+
+bcoef_function_0 = "0.0"
+bcoef_function_1 = "0.0"
+bcoef_function_2 = "1.0"
+bcoef_function_3 = "1.0"
+bcoef_function_4 = "0.0"
+bcoef_function_5 = "0.0"
+
+gcoef_function_0 = "0.0"
+gcoef_function_1 = "0.0"
+gcoef_function_2 = "0.0"
+gcoef_function_3 = "0.0"
+gcoef_function_4 = "0.0"
+gcoef_function_5 = "0.0"
+		  }
+
+VelocityBcCoefs_2 {
+acoef_function_0 = "1.0"
+acoef_function_1 = "1.0"
+acoef_function_2 = "1.0"
+acoef_function_3 = "1.0"
+acoef_function_4 = "0.0"
+acoef_function_5 = "0.0"
+
+bcoef_function_0 = "0.0"
+bcoef_function_1 = "0.0"
+bcoef_function_2 = "0.0"
+bcoef_function_3 = "0.0"
+bcoef_function_4 = "1.0"
+bcoef_function_5 = "1.0"
+
+gcoef_function_0 = "0.0"
+gcoef_function_1 = "0.0"
+gcoef_function_2 = "0.0"
+gcoef_function_3 = "0.0"
+gcoef_function_4 = "0.0"
+gcoef_function_5 = "0.0"
+ }
+
+IBHierarchyIntegrator {
+start_time          = START_TIME
+end_time            = END_TIME
+grow_dt             = GROW_DT
+num_cycles          = NUM_CYCLES
+regrid_structure_cfl_interval = REGRID_STRUCTURE_CFL_INTERVAL
+dt_max              = DT
+error_on_dt_change  = ERROR_ON_DT_CHANGE
+enable_logging      = ENABLE_LOGGING
+}
+
+//fine
+ModelParameters {
+   pericardial_tethering_names              = "exterior_left_ventricle","exterior_left_atrium","exterior_left_atrial_appendage","exterior_right_ventricle","exterior_right_atrium","exterior_right_atrium_2","exterior_right_atria_roof_muscle","exterior_right_atrial_appendage"
+   kappa_pericardium                        = 1.0e5
+   eta_pericardium 			    = 5.0e3
+   t_ramp                                   = T_RAMP
+   t_load                                   = 1
+   P_load                                   = 40000.0
+   kappa_surface_tether                     = 1.0e6
+   kappa_body_tether                        = 5.0e4
+   kappa_surface_penalty                    = 1.0e8
+   kappa_body_penalty                       = 1.0e8
+}
+
+IBFEMethod {
+   IB_use_nodal_quadrature    = USE_NODAL_QUADRATURE
+   IB_delta_fcn               = IB_DELTA_FUNCTION
+   split_tangential_force     = SPLIT_TANGENTIAL_FORCE
+   split_normal_force         = SPLIT_NORMAL_FORCE
+   Phi_current_config         = TRUE
+   use_jump_conditions        = USE_JUMP_CONDITIONS
+   use_consistent_mass_matrix = USE_CONSISTENT_MASS_MATRIX
+   IB_point_density           = IB_POINT_DENSITY
+   enable_logging             = TRUE
+   workload_quad_point_weight = 1.0
+
+   use_scratch_hierarchy = TRUE
+
+   GriddingAlgorithm
+   {
+       max_levels = MAX_LEVELS
+       ratio_to_coarser
+       {
+           level_1 = REF_RATIO,REF_RATIO,REF_RATIO
+           level_2 = REF_RATIO,REF_RATIO,REF_RATIO
+           level_3 = REF_RATIO,REF_RATIO,REF_RATIO
+           level_4 = REF_RATIO,REF_RATIO,REF_RATIO
+           level_5 = REF_RATIO,REF_RATIO,REF_RATIO
+       }
+
+       largest_patch_size
+       {
+           level_0 = 512,512,512
+       }
+
+       smallest_patch_size
+       {
+           level_0 = 16,16,16
+       }
+
+       efficiency_tolerance = 0.1e0  // min % of tag cells in new patch level
+       combine_efficiency   = 0.1e0  // chop box if sum of volumes of smaller boxes < efficiency * vol of large box
+
+       coalesce_boxes = TRUE
+   }
+
+   LoadBalancer
+   {
+      type                = "MERGING"
+      bin_pack_method     = "GREEDY"
+      max_workload_factor = 0.75
+   }
+}
+
+INSStaggeredHierarchyIntegrator {
+   mu                            = MU
+   rho                           = RHO
+   start_time                    = START_TIME
+   end_time                      = END_TIME
+   grow_dt                       = GROW_DT
+   num_cycles                    = NUM_CYCLES
+   convective_time_stepping_type = CONVECTIVE_TS_TYPE
+   convective_op_type            = CONVECTIVE_OP_TYPE
+   convective_difference_form    = CONVECTIVE_FORM
+   normalize_pressure            = NORMALIZE_PRESSURE
+   cfl                           = CFL_MAX
+   dt_max                        = DT
+   using_vorticity_tagging       = VORTICITY_TAGGING
+   vorticity_rel_thresh          = 0.25
+   vorticity_abs_thresh          = 400.0
+   tag_buffer                    = TAG_BUFFER
+   output_U                      = OUTPUT_U
+   output_P                      = OUTPUT_P
+   output_F                      = OUTPUT_F
+   output_Omega                  = OUTPUT_OMEGA
+   output_Div_U                  = OUTPUT_DIV_U
+   enable_logging                = ENABLE_LOGGING
+
+   convective_op_db {
+      // settings for STABILIZED_PPM convective operator
+      width_0 = 4.0*DX_FINEST
+      width_1 = 4.0*DX_FINEST
+      width_2 = 4.0*DX_FINEST
+      width_3 = 4.0*DX_FINEST
+      width_4 = 4.0*DX_FINEST
+      width_5 = 4.0*DX_FINEST
+   }
+   stokes_solver_type = "PETSC_KRYLOV_SOLVER"
+   stokes_solver_db{
+      ksp_type = "fgmres"
+   }
+   stokes_precond_type = "PROJECTION_PRECONDITIONER"
+   velocity_solver_type = "PETSC_KRYLOV_SOLVER"
+   velocity_solver_db{
+      ksp_type = "cg"
+      max_iterations = 1
+   }
+   pressure_solver_type = "PETSC_KRYLOV_SOLVER"
+   pressure_solver_db{
+      ksp_type = "richardson"
+      max_iterations = 1
+   }
+   pressure_precond_type = "POINT_RELAXATION_FAC_PRECONDITIONER"
+   pressure_precond_db {
+      num_pre_sweeps  = 0
+      num_post_sweeps = 2
+      prolongation_method = "LINEAR_REFINE"
+      restriction_method  = "CONSERVATIVE_COARSEN"
+      coarse_solver_type  = "HYPRE_LEVEL_SOLVER"
+      coarse_solver_rel_residual_tol = 1.0e-12
+      coarse_solver_abs_residual_tol = 1.0e-50
+      coarse_solver_max_iterations = 1
+      coarse_solver_db {
+         solver_type          = "PFMG"
+         num_pre_relax_steps  = 1
+         num_post_relax_steps = 1
+         enable_logging       = FALSE
+      }
+   }
+}
+
+Main {
+   solver_type = SOLVER_TYPE
+
+// log file parameters
+   log_file_name               = file_prename+"_IB3d.log"
+   log_all_nodes               = FALSE
+
+// visualization dump parameters
+   viz_writer                  = "VisIt","ExodusII"
+   viz_dump_interval           = 3000
+   viz_dump_dirname            = viz_output_prename+"viz_IB3d"
+   visit_number_procs_per_file = 1
+
+// restart dump parameters
+   restart_dump_interval       = 3000
+   restart_dump_dirname        = viz_output_prename+"restart_IB3d"
+
+// hierarchy data dump parameters
+   data_dump_interval          = 0
+   data_dump_dirname        = "hier_data_IB3d"
+
+// timer dump parameters
+   timer_dump_interval         = 0
+   }
+
+CartesianGeometry {
+domain_boxes = [ (0,0,0),(2*mult_x*N - 1,2*mult_y*N - 1,2*mult_z*N - 1) ]
+x_lo = -L_x,-L_y,-L_z
+x_up = L_x,L_y,L_z
+}
+
+GriddingAlgorithm {
+   max_levels = MAX_LEVELS
+   ratio_to_coarser {
+      level_1 = REF_RATIO,REF_RATIO,REF_RATIO
+      level_2 = REF_RATIO,REF_RATIO,REF_RATIO
+      level_3 = REF_RATIO,REF_RATIO,REF_RATIO
+      level_4 = REF_RATIO,REF_RATIO,REF_RATIO
+      level_5 = REF_RATIO,REF_RATIO,REF_RATIO
+   }
+   largest_patch_size {
+      level_0 = 512,512,512  // all finer levels will use same values as level_0
+   }
+   smallest_patch_size {
+      level_0 = 16, 16, 16  // all finer levels will use same values as level_0
+   }
+   efficiency_tolerance = 0.85e0  // min % of tag cells in new patch level
+   combine_efficiency   = 0.85e0  // chop box if sum of volumes of smaller boxes < efficiency * vol of large box
+}
+
+LoadBalancer {
+   bin_pack_method     = "SPATIAL"
+   max_workload_factor = 0.75
+}
+
+StandardTagAndInitialize {
+   tagging_method = "GRADIENT_DETECTOR"
+ }
+
+TimerManager{
+   print_exclusive = FALSE
+   print_total     = TRUE
+   print_threshold = 0.1
+   timer_list      = "IBAMR::*::*","IBTK::*::*","*::*::*"
+ }
